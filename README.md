@@ -2,9 +2,20 @@
 
 **steve** is the **ste**llar **v**ariability **e**xplorer: a small
 Python script that plots lightcurves downloaded from the [Mikulski
-Archive for Space Telescopes (MAST)](http://archive.stsci.edu/)
-using [`lightkurve`](http://docs.lightkurve.org/). It's a crude tool
-for quickly looking at a target's variability.
+Archive for Space Telescopes (MAST)](http://archive.stsci.edu/) using
+[`lightkurve`](http://docs.lightkurve.org/).  It's an inelegant,
+incomplete and unstable tool for quickly looking at a target's
+variability.
+
+## Requirements
+
+`steve` requires the Python packages
+[NumPy](https://numpy.org/),
+[SciPy](https://scipy.org/),
+[Matplotlib](https://matplotlib.org/),
+[Astropy](https://www.astropy.org/) and
+[Lightkurve](http://docs.lightkurve.org/).
+All can be (probably) be installed however you install Python packages.
 
 ## Usage
 
