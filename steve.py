@@ -150,7 +150,11 @@ if args.mission.lower() == 'tess':
     I = I & (np.abs(t-1348.35) > 1.05) # sector 1
 
 t, y, dy = t[I], y[I], dy[I]
-T = -2.5*np.log10(y) + 20.54
+if args.mission.lower() in ['tess']:
+    T = -2.5*np.log10(y) + 20.54
+elif args.mission.lower() in ['kepler', 'k2']:
+    # https://github.com/KeplerGO/lightkurve/issues/51
+    T = 12 - 2.5*np.log10(y/1.74e5)
 
 if args.t0 is not None:
     t = t - np.nanmin(t) + args.t_min
