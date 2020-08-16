@@ -113,6 +113,10 @@ except (FileNotFoundError, ValueError):
     lcs = lk.search_lightcurvefile(
         ' '.join(args.target), mission=args.mission, cadence=args.cadence, radius=args.radius).download_all()
 
+    # no data
+    if lcs is None:
+        raise SystemExit(1)
+
     vprint('Done.\nCorrecting medians... ', end='')
 
     m_sap = np.nanmedian(lcs[0].SAP_FLUX.flux)
