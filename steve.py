@@ -80,11 +80,11 @@ parser.add_argument("--sap", action='store_true',
                     help="use SAP flux instead of PDCSAP flux")
 parser.add_argument("--alpha", type=float, default=1.0,
                     help="opacity for plotted points (default=1.0)")
-parser.add_argument("-v", "--verbose", action='store_true')
+parser.add_argument("-q", "--quiet", action='store_true')
 args = parser.parse_args()
 
 def vprint(*print_args, **print_kwargs):
-    if args.verbose:
+    if not args.quiet:
         print(*print_args, **print_kwargs)
 
 def mjd_to_datetime(mjd):
