@@ -32,7 +32,8 @@ can make five types of plot:
 * all of the above on one four-panel plot (`peek`).
 
 `steve`'s basic syntax is `python3 steve.py <plot type> <target
-name>`.  So try
+name>`, where `<target name>` can be any identifier that `lightkurve`
+can resolve.  So try
 
     python3 steve.py lc zet phe
 
@@ -40,7 +41,7 @@ You should get the (beautiful!) TESS lightcurve for ζ Phe.  Also
 notice that wherever you ran `steve`, you now should have a file
 called `zet_phe.npy`. This a crude cache file so that `steve` doesn't
 have to keep querying MAST.¹ You can control where these are put using
-the `--cache` option.
+the `--cache-dir` option.
 
 There are loads of eclipses, so let's try phase-folding the
 lightcurve. We can also add some transparency to the points with
