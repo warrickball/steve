@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 import lightkurve as lk
 from astropy import time
+from astropy.timeseries import LombScargle
 from scipy.optimize import curve_fit
 from argparse import ArgumentParser
 
@@ -90,12 +91,24 @@ def vprint(*print_args, **print_kwargs):
 def mjd_to_datetime(mjd):
     return time.Time(mjd+2457000, format='jd').to_datetime()
 
-def LS(t, y):
-    f, p = LombScargle(0.0864*t, y).autopower(nyquist_factor=1,
-                                              samples_per_peak=args.psos,
-                                              normalization='psd')
-    p = p*np.var(y)/np.trapz(p, x=f)
+def PS():
+    ppm = 1e6*(y/np.nanmedian(y)-1)
+    f, p = LombScargle(0.0864*t, ppm).autopower(
+        nyquist_factor=1, samples_per_peak=args.psos,
+        normalization='psd')
+    p = p*np.var(ppm)/np.trapz(p, x=f)
     return f, p
+
+def AS():
+    f, p = LombScargle(t, T).autopower(
+        normalization='psd', samples_per_peak=args.asos, nyquist_factor=1)
+    I = np.argmax(p) + np.arange(-2,3) # 5 points
+    f0 = curve_fit(lambda z, z0, A, w: A*np.sinc((z-z0)/w)**2,
+                   f[I], p[I], (f[np.argmax(p)], np.max(p), 10*(f[2]-f[1])))[0][0]
+    a = np.sqrt(p*4/len(t))
+    P = -args.period/f0 if args.period < 0 else args.period
+
+    return f, a, P
 
 cache_file = '%s/%s.npy' % (
     args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'))
@@ -170,18 +183,8 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
     pl.xlabel('days')
 
     if args.annotate is not None:
-        from astropy.timeseries import LombScargle
-
         if args.period < 0:
-            f, p = LombScargle(t, y).autopower(normalization='psd',
-                                               samples_per_peak=args.asos,
-                                               nyquist_factor=1)
-            I = np.argmax(p) + np.arange(-2,3) # 5 points
-            f0 = curve_fit(lambda z, z0, A, w: A*np.sinc((z-z0)/w)**2,
-                           f[I], p[I], (f[np.argmax(p)], np.max(p), 10*(f[2]-f[1])))[0][0]
-            a = np.sqrt(p*4/len(t))
-            P = -args.period/f0
-            vprint('Refit period = %.8f d' % (1/f0))
+            f, a, P = AS()
         else:
             P = args.period
 
@@ -213,21 +216,14 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
         pl.text(t0, T0+dT, 'P = %.3fd' % P, va=va, ha='center')
 
 elif args.plot_kind.lower() in ['ps', 'powerspectrum', 'ls', 'lombscargle']:
-    from astropy.timeseries import LombScargle
-    f, p = LombScargle(0.0864*t, y, dy).autopower(normalization='psd',
-                                                  samples_per_peak=args.psos,
-                                                  nyquist_factor=1)
+    f, p = PS()
     pl.plot(f*args.scale_x, p*args.scale_y)
     pl.xlabel('frequency (µHz)')
     pl.ylabel('power density (ppm²/µHz)')
 
 elif args.plot_kind.lower() in ['as', 'ampspectrum']:
     from astropy.timeseries import LombScargle
-
-    f, p = LombScargle(t, T).autopower(normalization='psd',
-                                       samples_per_peak=args.asos,
-                                       nyquist_factor=1)
-    a = np.sqrt(p*4/len(t))
+    f, a, P = AS()
     pl.plot(f*args.scale_x, a*args.scale_y)
 
     pl.xlabel('frequency (1/d)')
@@ -237,17 +233,11 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
     from astropy.timeseries import LombScargle
 
     if args.period < 0:
-        f, p = LombScargle(t, y).autopower(normalization='psd',
-                                           samples_per_peak=args.asos,
-                                           nyquist_factor=1)
-        I = np.argmax(p) + np.arange(-2,3) # 5 points
-        f0 = curve_fit(lambda z, z0, A, w: A*np.sinc((z-z0)/w)**2,
-                       f[I], p[I], (f[np.argmax(p)], np.max(p), 10*(f[2]-f[1])))[0][0]
-        a = np.sqrt(p*4/len(t))
-        P = -args.period/f0
-        vprint('Refit period = %.8f d' % (1/f0))
+        f, a, P = AS()
     else:
         P = args.period
+
+    vprint('Folding period = %.8f d' % P)
 
     pl.plot(((t-t[np.argmax(T)] + args.phase_min*P)%P)*args.scale_x,
             (T + args.delta*np.floor((t-t[np.argmax(T)] + args.phase_min*P)/P))*args.scale_y,
@@ -260,19 +250,8 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
 elif args.plot_kind.lower() in ['peek']:
     from astropy.timeseries import LombScargle
 
-    f, p = LombScargle(t, T).autopower(normalization='psd',
-                                       samples_per_peak=args.asos,
-                                       nyquist_factor=1)
-    a = np.sqrt(p*4/len(t))
-
-    if args.period < 0:
-        I = np.argmax(p) + np.arange(-2,3) # 5 points
-        f0 = curve_fit(lambda z, z0, A, w: A*np.sinc((z-z0)/w)**2,
-                       f[I], p[I], (f[np.argmax(p)], np.max(p), 10*(f[2]-f[1])))[0][0]
-        P = -args.period/f0
-        vprint('Refit period = %.8f d' % (1/f0))
-    else:
-        P = args.period
+    f, a, P = AS()
+    vprint('Folding period = %.8f d' % P)
 
     pl.subplot(2,2,1)
     pl.plot(t, T, '.', alpha=args.alpha)
@@ -298,10 +277,7 @@ elif args.plot_kind.lower() in ['peek']:
     pl.xlabel('frequency (c/d)')
     pl.xlim([-1., 51.])
 
-    f, p = LombScargle(t, y, dy).autopower(normalization='psd',
-                                           samples_per_peak=args.psos,
-                                           nyquist_factor=1)
-
+    f, p = PS()
     pl.subplot(2,2,4)
     pl.loglog(f/0.0864, p)
     pl.xlabel('frequency (uHz)')
