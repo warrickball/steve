@@ -279,7 +279,7 @@ elif args.plot_kind.lower() in ['peek']:
 
     f, p = PS()
     pl.subplot(2,2,4)
-    pl.loglog(f/0.0864, p)
+    pl.loglog(f, p)
     pl.xlabel('frequency (uHz)')
     ax = pl.gca()
     ax.yaxis.tick_right()
