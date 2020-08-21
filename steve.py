@@ -165,9 +165,11 @@ if args.mission.lower() == 'tess':
 t, y, dy = t[I], y[I], dy[I]
 if args.mission.lower() in ['tess']:
     T = -2.5*np.log10(y) + 20.54
+    mag_label = 'TESSmag'
 elif args.mission.lower() in ['kepler', 'k2']:
     # https://github.com/KeplerGO/lightkurve/issues/51
     T = 12 - 2.5*np.log10(y/1.74e5)
+    mag_label = 'Kp'
 
 if args.t0 is not None:
     t = t - np.nanmin(t) + args.t_min
@@ -179,7 +181,7 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
         pl.plot(t*args.scale_x, T*args.scale_y, '.', alpha=args.alpha)
 
     pl.axis(np.array(pl.axis())[[0,1,3,2]])
-    pl.ylabel('TESSmag')
+    pl.ylabel(mag_label)
     pl.xlabel('days')
 
     if args.annotate is not None:
@@ -245,7 +247,7 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
     pl.xlim(0.0, P)
     pl.axis(np.array(pl.axis())[[0,1,3,2]])
     pl.xlabel('days mod %.2fd' % P)
-    pl.ylabel('TESSmag')
+    pl.ylabel(mag_label)
 
 elif args.plot_kind.lower() in ['peek']:
     from astropy.timeseries import LombScargle
@@ -257,7 +259,7 @@ elif args.plot_kind.lower() in ['peek']:
     pl.plot(t, T, '.', alpha=args.alpha)
     pl.axis(np.array(pl.axis())[[0,1,3,2]])
     pl.xlabel('days')
-    pl.ylabel('TESSmag')
+    pl.ylabel(mag_label)
     ax = pl.gca()
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top')
