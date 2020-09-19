@@ -37,6 +37,9 @@ parser.add_argument("--asos", type=float, default=10.0,
 parser.add_argument("--psos", type=float, default=1.0,
                     help="overample power spectrum by this factor "
                     "(default=1.0)")
+parser.add_argument("--nyquist-factor", type=float, default=1.0,
+                    help="Nyquist factor for Astropy's Lomb-Scargle method "
+                    "(default=1)")
 parser.add_argument("--t0", type=float, default=None,
                     help="set first timestamp to this value "
                     "(default=don't change first timestamp)")
@@ -94,14 +97,17 @@ def mjd_to_datetime(mjd):
 def PS():
     ppm = 1e6*(y/np.nanmedian(y)-1)
     f, p = LombScargle(0.0864*t, ppm).autopower(
-        nyquist_factor=1, samples_per_peak=args.psos,
+        nyquist_factor=args.nyquist_factor,
+        samples_per_peak=args.psos,
         normalization='psd')
     p = p*np.var(ppm)/np.trapz(p, x=f)
     return f, p
 
 def AS():
     f, p = LombScargle(t, T).autopower(
-        normalization='psd', samples_per_peak=args.asos, nyquist_factor=1)
+        normalization='psd',
+        samples_per_peak=args.asos,
+        nyquist_factor=args.nyquist_factor)
     I = np.argmax(p) + np.arange(-2,3) # 5 points
     f0 = curve_fit(lambda z, z0, A, w: A*np.sinc((z-z0)/w)**2,
                    f[I], p[I], (f[np.argmax(p)], np.max(p), 10*(f[2]-f[1])))[0][0]
