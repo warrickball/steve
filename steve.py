@@ -61,7 +61,9 @@ parser.add_argument("--annotate", type=int, default=None,
                     help="mark the nth period: positive for maxima, "
                     "negative for minima")
 parser.add_argument("--xlabel", type=str, nargs='+', default=None,
-                    help="xlabel for plot")
+                    help="xlabel for lower x-axis")
+parser.add_argument("--xlabel2", type=str, nargs='+', default=None,
+                    help="xlabel for upper x-axis, if present")
 parser.add_argument("--ylabel", type=str, nargs='+', default=None,
                     help="ylabel for plot")
 parser.add_argument("--scale-x", type=float, default=1.0,
@@ -246,14 +248,18 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
         P = args.period
 
     vprint('Folding period = %.8f d' % P)
+    tmod = t-t[np.argmax(T)] + args.phase_min*P
 
-    pl.plot(((t-t[np.argmax(T)] + args.phase_min*P)%P)*args.scale_x,
-            (T + args.delta*np.floor((t-t[np.argmax(T)] + args.phase_min*P)/P))*args.scale_y,
+    pl.plot((tmod%P)*args.scale_x,
+            (T + args.delta*np.floor(tmod/P))*args.scale_y,
             '.', alpha=args.alpha)
     pl.xlim(0.0, P)
     pl.gca().invert_yaxis()
     pl.xlabel('days mod %.2fd' % P)
     pl.ylabel(mag_label)
+
+    ax2 = pl.gca().secondary_xaxis('top', functions=(lambda x: x/P, lambda x: x*P))
+    ax2.set_xlabel('orbital phase')
 
 elif args.plot_kind.lower() in ['peek']:
     from astropy.timeseries import LombScargle
@@ -304,6 +310,9 @@ if args.date:
 
 if args.xlabel is not None:
     pl.xlabel(' '.join(args.xlabel))
+
+if args.xlabel2 is not None:
+    ax2.set_xlabel(' '.join(args.xlabel2))
 
 if args.ylabel is not None:
     pl.ylabel(' '.join(args.ylabel))
