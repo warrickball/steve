@@ -186,7 +186,7 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
     else:
         pl.plot(t*args.scale_x, T*args.scale_y, '.', alpha=args.alpha)
 
-    pl.axis(np.array(pl.axis())[[0,1,3,2]])
+    pl.gca().invert_yaxis()
     pl.ylabel(mag_label)
     pl.xlabel('days')
 
@@ -251,7 +251,7 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
             (T + args.delta*np.floor((t-t[np.argmax(T)] + args.phase_min*P)/P))*args.scale_y,
             '.', alpha=args.alpha)
     pl.xlim(0.0, P)
-    pl.axis(np.array(pl.axis())[[0,1,3,2]])
+    pl.gca().invert_yaxis()
     pl.xlabel('days mod %.2fd' % P)
     pl.ylabel(mag_label)
 
@@ -263,7 +263,7 @@ elif args.plot_kind.lower() in ['peek']:
 
     pl.subplot(2,2,1)
     pl.plot(t, T, '.', alpha=args.alpha)
-    pl.axis(np.array(pl.axis())[[0,1,3,2]])
+    pl.gca().invert_yaxis()
     pl.xlabel('days')
     pl.ylabel(mag_label)
     ax = pl.gca()
@@ -272,7 +272,7 @@ elif args.plot_kind.lower() in ['peek']:
 
     pl.subplot(2,2,2)
     pl.plot((t-t[np.argmin(y)] + args.phase_min*P)%P, T, '.', alpha=args.alpha)
-    pl.axis(np.array(pl.axis())[[0,1,3,2]])
+    pl.gca().invert_yaxis()
     pl.xlabel('days mod %.2fd' % P)
     ax = pl.gca()
     ax.yaxis.tick_right()
