@@ -40,6 +40,8 @@ parser.add_argument("--psos", type=float, default=1.0,
 parser.add_argument("--nyquist-factor", type=float, default=1.0,
                     help="Nyquist factor for Astropy's Lomb-Scargle method "
                     "(default=1)")
+parser.add_argument("--smooth", type=int, default=0,
+                    help="smooth power spectrum with top-hat this many bins wide")
 parser.add_argument("--t0", type=float, default=None,
                     help="set first timestamp to this value "
                     "(default=don't change first timestamp)")
@@ -103,6 +105,10 @@ def PS():
         samples_per_peak=args.psos,
         normalization='psd')
     p = p*np.var(ppm)/np.trapz(p, x=f)
+
+    if args.smooth > 0:
+        p = np.convolve(p, np.ones(args.smooth)/args.smooth, mode='same')
+
     return f, p
 
 def AS():
