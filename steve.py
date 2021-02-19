@@ -180,7 +180,7 @@ elif args.mission.lower() in ['kepler', 'k2']:
     mag_label = 'Kp'
 
 if args.t0 is not None:
-    t = t - np.nanmin(t) + args.t_min
+    t = t - np.nanmin(t) + args.t0
 
 if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
     if args.date:
