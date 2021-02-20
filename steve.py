@@ -13,6 +13,7 @@ parser = ArgumentParser("Given a star name that `lightkurve` can resolve, "
                         "download the lightcurve data from MAST and plot the "
                         "lightcurve (or derived data).")
 parser.add_argument("plot_kind", type=str, help="type of plot (case insensitive), one of "
+                    "* 'query': just print what's available from MAST via lightkurve;"
                     "* 'lightcurve' or 'lc';"
                     "* 'fold', 'folded' or 'phased';"
                     "* 'ampspectrum' or 'as';"
@@ -78,9 +79,15 @@ parser.add_argument("--cache-dir", type=str, default='.',
                     help="cache data in this directory "
                     "(default=current directory)")
 parser.add_argument("--no-cache", action='store_true', help="don't use cache")
+parser.add_argument("-U", "--update", action='store_true', help="update cache")
 parser.add_argument("--mission", type=str, default='TESS',
                     choices=['TESS', 'K2', 'kepler'])
-parser.add_argument("--cadence", type=str, default='short')
+parser.add_argument("--author", type=str, default='SPOC',
+                    help="author argument for lightkurve's search "
+                    "(default='SPOC')")
+parser.add_argument("--exptime", type=int, default=120,
+                    help="exposure time argument for lightkurve's search "
+                    "(default=120)")
 parser.add_argument("-r", "--radius", type=float, default=None,
                     help="radius for lightkurve's search, in arcseconds "
                     "(default=None, i.e. lightkurve default)")
@@ -95,8 +102,8 @@ def vprint(*print_args, **print_kwargs):
     if not args.quiet:
         print(*print_args, **print_kwargs)
 
-def mjd_to_datetime(mjd):
-    return time.Time(mjd+2457000, format='jd').to_datetime()
+def jd_to_datetime(t):
+    return time.Time(t, format='jd').to_datetime()
 
 def PS():
     ppm = 1e6*(y/np.nanmedian(y)-1)
@@ -127,9 +134,13 @@ def AS():
 cache_file = '%s/%s.npy' % (
     args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'))
 
+if args.plot_kind == 'query':
+    print(lk.search_lightcurve(' '.join(args.target)))
+    exit(0)
+
 try:
-    if args.no_cache:
-        vprint("Not using cache: forcing failure... ", end='')
+    if args.no_cache or args.update:
+        vprint("Not loading from cache: forcing failure... ", end='')
         raise FileNotFoundError("Not using cache: forcing failure...")
     else:
         vprint('Loading cache file %s... ' % cache_file, end='')
@@ -137,60 +148,57 @@ try:
 except (FileNotFoundError, ValueError):
     vprint('Failed!\nDownloading data using lightkurve... ', end='')
 
-    lcs = lk.search_lightcurvefile(
-        ' '.join(args.target), mission=args.mission, cadence=args.cadence, radius=args.radius).download_all()
+    lc = lk.search_lightcurve(
+        ' '.join(args.target),
+        mission=args.mission,
+        exptime=args.exptime,
+        author=args.author,
+        radius=args.radius).download_all().stitch()
 
-    # no data
-    if lcs is None:
-        raise SystemExit(1)
+    if len(lc) == 0:
+        raise ValueError("no data found")
 
-    vprint('Done.\nCorrecting medians... ', end='')
+    data = np.zeros((6, len(lc)))
 
-    m_sap = np.nanmedian(lcs[0].SAP_FLUX.flux)
-    m_pdcsap = np.nanmedian(lcs[0].PDCSAP_FLUX.flux)
+    data[0], data[-1] = lc.time.jd, lc.quality.value
+    data[1] = lc.sap_flux.value
+    data[2] = -2.5*np.log10(data[1]/np.nanmedian(data[1]))
+    data[3] = lc.flux.value
+    data[4] = -2.5*np.log10(data[3]/np.nanmedian(data[3]))
 
-    data = np.hstack([np.vstack([
-        lc.PDCSAP_FLUX.time,
-        lc.SAP_FLUX.flux-np.nanmedian(lc.SAP_FLUX.flux) + m_sap,
-        lc.SAP_FLUX.flux_err,
-        lc.PDCSAP_FLUX.flux-np.nanmedian(lc.PDCSAP_FLUX.flux) + m_pdcsap,
-        lc.PDCSAP_FLUX.flux_err,
-        lc.PDCSAP_FLUX.quality])
-                      for lc in lcs])
-    data = data[:,np.all(np.isfinite(data), axis=0)]
+    if args.mission.lower() in ['tess']:
+        data[[2,4]] += lc.meta['TESSMAG']
+    elif args.mission.lower() in ['kepler', 'k2']:
+        data[[2,4]] += lc.meta['KEPMAG']
 
-    vprint('Done.\nCaching data to file %s... ' % cache_file, end='')
-
-    np.save(cache_file, data)
+    if not args.no_cache:
+        vprint('Done.\nCaching data to file %s... ' % cache_file, end='')
+        np.save(cache_file, data)
 
 vprint('Done.')
 
-if args.sap:
-    t, y, dy, q = data[[0,1,2,5]]
-else:
-    t, y, dy, q = data[[0,3,4,5]]
-
-I = (q == 0) & np.isfinite(t*y) & (t > args.t_min) & (t < args.t_max)
-
-# hardcoded cleanup
-if args.mission.lower() == 'tess':
-    I = I & (np.abs(t-1348.35) > 1.05) # sector 1
-
-t, y, dy = t[I], y[I], dy[I]
 if args.mission.lower() in ['tess']:
-    T = -2.5*np.log10(y) + 20.54
     mag_label = 'TESSmag'
 elif args.mission.lower() in ['kepler', 'k2']:
-    # https://github.com/KeplerGO/lightkurve/issues/51
-    T = 12 - 2.5*np.log10(y/1.74e5)
     mag_label = 'Kp'
+else:
+    mag_label = 'mag'
+
+t, q = data[[0,-1]]
+if args.sap:
+    y, T = data[[1,2]]
+else:
+    y, T = data[[3,4]]
+
+I = (q == 0) & np.isfinite(t*y) & (t > args.t_min) & (t < args.t_max)
+t, y, T = t[I], y[I], T[I]
 
 if args.t0 is not None:
     t = t - np.nanmin(t) + args.t0
 
 if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
     if args.date:
-        pl.plot_date(mjd_to_datetime(t), T*args.scale_y, '.', alpha=args.alpha)
+        pl.plot_date(jd_to_datetime(t), T*args.scale_y, '.', alpha=args.alpha)
     else:
         pl.plot(t*args.scale_x, T*args.scale_y, '.', alpha=args.alpha)
 
@@ -221,13 +229,13 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
         t0, t1 = t_extrema[[abs(args.annotate)-1, abs(args.annotate)]]
 
         if args.date:
-            pl.plot_date(list(map(mjd_to_datetime, [t0, t1])), T0*np.ones(2), 'k-')
+            pl.plot_date(list(map(jd_to_datetime, [t0, t1])), T0*np.ones(2), 'k-')
         else:
             pl.plot([t0, t1], T0*np.ones(2), 'k-')
 
         t0 = (t0+t1)/2.
         if args.date:
-            t0 = mjd_to_datetime(t0)
+            t0 = jd_to_datetime(t0)
 
         pl.text(t0, T0+dT, 'P = %.3fd' % P, va=va, ha='center')
 
@@ -295,7 +303,7 @@ elif args.plot_kind.lower() in ['peek']:
     pl.subplot(2,2,3)
     pl.plot(f, a)
     pl.xlabel('frequency (c/d)')
-    pl.xlim([-1., 51.])
+    pl.xlim([-1, min(f.max(), 50.)+1])
 
     f, p = PS()
     pl.subplot(2,2,4)
