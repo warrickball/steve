@@ -131,11 +131,12 @@ def AS():
 
     return f, a, P
 
-cache_file = '%s/%s.npy' % (
-    args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'))
+cache_file = '%s/%s-%s-%s-%i.npy' % (
+    args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'),
+    args.mission.lower(), args.author.lower(), args.exptime)
 
 if args.plot_kind == 'query':
-    print(lk.search_lightcurve(' '.join(args.target)))
+    print(lk.search_lightcurve(' '.join(args.target), radius=args.radius))
     exit(0)
 
 try:
