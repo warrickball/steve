@@ -33,10 +33,10 @@ parser.add_argument("--phase-min", type=float, default=0.5,
                     help="phase of minimum brightness for phase-folded plots "
                     "(default=0.5)")
 parser.add_argument("--asos", type=float, default=10.0,
-                    help="overample amplitude spectrum by this factor "
+                    help="oversample amplitude spectrum by this factor "
                     "(default=10.0)")
 parser.add_argument("--psos", type=float, default=1.0,
-                    help="overample power spectrum by this factor "
+                    help="oversample power spectrum by this factor "
                     "(default=1.0)")
 parser.add_argument("--nyquist-factor", type=float, default=1.0,
                     help="Nyquist factor for Astropy's Lomb-Scargle method "

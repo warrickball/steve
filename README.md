@@ -76,7 +76,11 @@ plot with the lightcurve, phase-folded lightcurve, amplitude spectrum
 
 #### Why can't I get a lightcurve for my target?
 
-First make sure it was actually observed by TESS! You can use the [Web TESS Viewing tool](https://heasarc.gsfc.nasa.gov/cgi-bin/tess/webtess/wtv.py) or query the star on MAST.  
+First make sure it was actually observed by TESS!  `steve` will print a list of available data products by using the `query` subcommand. e.g. try
+
+    python3 steve.py query zet phe
+
+To plot data from sources besides TESS's 2-minute cadence SPOC lightcurves, pass `--author` and `--exptime` arguments (which correspond to the relevant keyword arguments in Lightkurve's [`search_lightcurve`](http://docs.lightkurve.org/reference/api/lightkurve.search_lightcurve.html) function).
 
 Sometimes you need to widen `lightkurve`'s search from it's default (currently 0.0001 arcseconds) using the `-r` option, which specifies the search radius (also in arcseconds). For Algol (β Per), I found it necessary to increase the the search radius to 2 arcseconds.
 
