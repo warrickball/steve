@@ -60,6 +60,8 @@ parser.add_argument("-t", "--title", type=str, nargs='+', default=None,
                     help="specify title for plot, otherwise use target name")
 parser.add_argument("--no-title", action='store_true',
                     help="don't show a title")
+parser.add_argument("--style", type=str, default=None,
+                    help="load this Matplotlib style file")
 parser.add_argument("--annotate", type=int, default=None,
                     help="mark the nth period: positive for maxima, "
                     "negative for minima")
@@ -130,6 +132,9 @@ def AS():
     P = -args.period/f0 if args.period < 0 else args.period
 
     return f, a, P
+
+if not args.style is None:
+    pl.style.use(args.style)
 
 cache_file = '%s/%s-%s-%s-%i.npy' % (
     args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'),
