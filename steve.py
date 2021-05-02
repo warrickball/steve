@@ -82,11 +82,13 @@ parser.add_argument("--cache-dir", type=str, default='.',
                     "(default=current directory)")
 parser.add_argument("--no-cache", action='store_true', help="don't use cache")
 parser.add_argument("-U", "--update", action='store_true', help="update cache")
-parser.add_argument("--mission", type=str, default='TESS',
-                    choices=['TESS', 'K2', 'kepler'])
-parser.add_argument("--author", type=str, default='SPOC',
-                    help="author argument for lightkurve's search "
-                    "(default='SPOC')")
+parser.add_argument("--mission", type=str.lower, default='TESS',
+                    help="mission argument for lightkurve's search, "
+                    "case insensitive (default='TESS')",
+                    choices=['TESS', 'K2', 'Kepler'])
+parser.add_argument("--author", type=str.lower, default='SPOC',
+                    help="author argument for lightkurve's search, "
+                    "case insensitive (default='SPOC')")
 parser.add_argument("--exptime", type=int, default=120,
                     help="exposure time argument for lightkurve's search "
                     "(default=120)")
