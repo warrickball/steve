@@ -43,15 +43,19 @@ parser.add_argument("--nyquist-factor", type=float, default=1.0,
                     "(default=1)")
 parser.add_argument("--smooth", type=int, default=0,
                     help="smooth power spectrum with top-hat this many bins wide")
-parser.add_argument("--t0", type=float, default=None,
-                    help="set first timestamp to this value "
-                    "(default=don't change first timestamp)")
+parser.add_argument("--t0", type=float, default=2457000,
+                    help="subtract this much off times, before conversion. "
+                    "if 0, set first timestamp to 0.  (default=2457000)")
 parser.add_argument("--t-min", type=float, default=-np.inf,
                     help="only use data with raw t > this "
                     "(default=-inf, i.e. use all data)")
 parser.add_argument("--t-max", type=float, default=np.inf,
                     help="only use data with raw t < this "
                     "(default=inf, i.e. use all data)")
+parser.add_argument("--transit-mask", type=float, nargs=3, default=[0,0,0],
+                    help="given t0, T, P, exclude points within T/2 of t0+nP "
+                    "(i.e. a transit-like mask with ephemeris t0, duration T "
+                    "and period P)")
 parser.add_argument("--date", action='store_true',
                     help="use actual date for lightcurve x-axis")
 parser.add_argument("-a", "--axis", type=float, nargs=4, default=None,
@@ -65,6 +69,8 @@ parser.add_argument("--style", type=str, default=None,
 parser.add_argument("--annotate", type=int, default=None,
                     help="mark the nth period: positive for maxima, "
                     "negative for minima")
+parser.add_argument("--x2", type=str, default=None,
+                    help="kind of second x-axis (at top)")
 parser.add_argument("--xlabel", type=str, nargs='+', default=None,
                     help="xlabel for lower x-axis")
 parser.add_argument("--xlabel2", type=str, nargs='+', default=None,
@@ -138,7 +144,12 @@ def AS():
 if not args.style is None:
     pl.style.use(args.style)
 
-cache_file = '%s/%s-%s-%s-%i.npy' % (
+if args.sap:
+    cache_base = '%s/%s-%s-%s-sap-%i.npy'
+else:
+    cache_base = '%s/%s-%s-%s-%i.npy'
+
+cache_file = cache_base % (
     args.cache_dir, ' '.join(args.target).lower().replace(' ', '_'),
     args.mission.lower(), args.author.lower(), args.exptime)
 
@@ -155,29 +166,56 @@ try:
         data = np.load(cache_file)
 except (FileNotFoundError, ValueError):
     vprint('Failed!\nDownloading data using lightkurve... ', end='')
-
-    lc = lk.search_lightcurve(
+        
+    lcs = lk.search_lightcurve(
         ' '.join(args.target),
         mission=args.mission,
         exptime=args.exptime,
         author=args.author,
-        radius=args.radius).download_all().stitch()
+        radius=args.radius).download_all()
 
-    if len(lc) == 0:
+    if len(lcs) == 0:
         raise ValueError("no data found")
 
-    data = np.zeros((6, len(lc)))
+    if args.sap:
+        for lc in lcs:
+            lc.flux = lc.sap_flux
 
-    data[0], data[-1] = lc.time.jd, lc.quality.value
-    data[1] = lc.sap_flux.value
+    lc = lcs.stitch().remove_nans()   # stitch() normalizes the lightcurve
+    data = np.zeros((4, len(lc)))
+
+    data[0] = lc.time.jd
+    data[1] = lc.flux.value
     data[2] = -2.5*np.log10(data[1]/np.nanmedian(data[1]))
-    data[3] = lc.flux.value
-    data[4] = -2.5*np.log10(data[3]/np.nanmedian(data[3]))
+    try:
+        data[3] = lc.quality.value
+    except AttributeError:
+        data[3] = np.zeros(len(lc), dtype=int)
 
-    if args.mission.lower() in ['tess']:
-        data[[2,4]] += lc.meta['TESSMAG']
-    elif args.mission.lower() in ['kepler', 'k2']:
-        data[[2,4]] += lc.meta['KEPMAG']
+    if args.mission.lower() in ['tess', 'kepler', 'k2']:
+        if args.mission.lower() in ['tess']:
+            mag_meta = lc.meta['TESSMAG']
+            ZP = 20.54
+        else:
+            mag_meta = lc.meta['KEPMAG']
+            ZP = 25.101373120706498
+
+        m = np.nanmedian(data[1])
+        if m > 10: # probably a flux in e-/s, not normalised
+            mag_check = -2.5*np.log10(m) + ZP
+        else:      # probably normalised → can't derive a magnitude → pass check
+            mag_check = mag_meta
+    else:
+        mag_check = mag_meta = 0.0
+
+    if mag_meta is None:
+        mag_meta = 0.0
+
+    if np.abs(mag_meta-mag_check) > 1:
+        vprint("\nWARNING: lightcurve magnitude %.2f replaced with estimate of %.2f" % (mag_meta, mag_check))
+        data[2] += mag_check
+    else:
+        data[2] += mag_meta
 
     if not args.no_cache:
         vprint('Done.\nCaching data to file %s... ' % cache_file, end='')
@@ -192,17 +230,28 @@ elif args.mission.lower() in ['kepler', 'k2']:
 else:
     mag_label = 'mag'
 
-t, q = data[[0,-1]]
-if args.sap:
-    y, T = data[[1,2]]
-else:
-    y, T = data[[3,4]]
-
-I = (q == 0) & np.isfinite(t*y) & (t > args.t_min) & (t < args.t_max)
-t, y, T = t[I], y[I], T[I]
+t, y, T, q = data
 
 if args.t0 is not None:
-    t = t - np.nanmin(t) + args.t0
+    if args.t0 == 0:
+        t = t - np.nanmin(t)
+        time_label = 'time (days)'
+    else:
+        t = t - args.t0
+        time_label = 'time (JD-%.8g)' % args.t0
+else:
+    time_label = 'time (JD)'
+
+if args.transit_mask[1] == 0:
+    I = np.ones(len(t), dtype=bool)
+else:
+    t0, w, P = args.transit_mask
+    I = ~np.abs((t-t0+0.5*P)%P - 0.5*P < w/2)
+
+I = (q == 0) & np.isfinite(t*y) & (t > args.t_min) & (t < args.t_max) & I
+t, y, T = t[I], y[I], T[I]
+if args.date:
+    t = data[0][I]
 
 if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
     if args.date:
@@ -212,7 +261,7 @@ if args.plot_kind.lower() in ['lc', 'lightcurve', 'ts', 'timeseries']:
 
     pl.gca().invert_yaxis()
     pl.ylabel(mag_label)
-    pl.xlabel('days')
+    pl.xlabel(time_label)
 
     if args.annotate is not None:
         if args.period < 0:
@@ -258,8 +307,15 @@ elif args.plot_kind.lower() in ['as', 'ampspectrum']:
     f, a, P = AS()
     pl.plot(f*args.scale_x, a*args.scale_y)
 
-    pl.xlabel('frequency (1/d)')
+    pl.xlabel('frequency (c/d)')
     pl.ylabel('amplitude (mag)')
+
+    if args.x2 in ['uHz', 'μHz']:
+        ax2 = pl.gca().secondary_xaxis('top', functions=(lambda x: x/0.0864, lambda x: x*0.0864))
+        ax2.set_xlabel('frequency (μHz)')
+    elif args.x2 in ['d', 'days']:
+        ax2 = pl.gca().secondary_xaxis('top', functions=(lambda x: 1/x, lambda x: 1/x))
+        ax2.set_xlabel('period (days)')
 
 elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
     from astropy.timeseries import LombScargle
@@ -280,8 +336,9 @@ elif args.plot_kind.lower() in ['fold', 'folded', 'phased']:
     pl.xlabel('days mod %.2fd' % P)
     pl.ylabel(mag_label)
 
-    ax2 = pl.gca().secondary_xaxis('top', functions=(lambda x: x/P, lambda x: x*P))
-    ax2.set_xlabel('orbital phase')
+    if args.x2 == 'phase':
+        ax2 = pl.gca().secondary_xaxis('top', functions=(lambda x: x/P, lambda x: x*P))
+        ax2.set_xlabel('orbital phase')
 
 elif args.plot_kind.lower() in ['peek']:
     from astropy.timeseries import LombScargle
@@ -292,7 +349,7 @@ elif args.plot_kind.lower() in ['peek']:
     pl.subplot(2,2,1)
     pl.plot(t, T, '.', alpha=args.alpha)
     pl.gca().invert_yaxis()
-    pl.xlabel('days')
+    pl.xlabel(time_label)
     pl.ylabel(mag_label)
     ax = pl.gca()
     ax.xaxis.tick_top()
