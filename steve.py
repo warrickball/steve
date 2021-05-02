@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import matplotlib.pyplot as pl
-import lightkurve as lk
-from astropy import time
-from astropy.timeseries import LombScargle
-from scipy.optimize import curve_fit
 from argparse import ArgumentParser
 
 parser = ArgumentParser("Given a star name that `lightkurve` can resolve, "
@@ -107,6 +102,12 @@ parser.add_argument("--alpha", type=float, default=1.0,
                     help="opacity for plotted points (default=1.0)")
 parser.add_argument("-q", "--quiet", action='store_true')
 args = parser.parse_args()
+
+import matplotlib.pyplot as pl
+import lightkurve as lk
+from astropy import time
+from astropy.timeseries import LombScargle
+from scipy.optimize import curve_fit
 
 def vprint(*print_args, **print_kwargs):
     if not args.quiet:
