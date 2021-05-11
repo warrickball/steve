@@ -37,9 +37,16 @@ can resolve.  So try
 
     python3 steve.py lc zet phe
 
-You should get the (beautiful!) TESS lightcurve for ζ Phe.  Also
+You should get the TESS lightcurve for ζ Phe.  There's data from the
+nominal and extended mission, separated by a long gap.  You can zoom
+in or restrict the time range to the nominal mission data from the
+command line with e.g.
+
+    python3 steve.py lc zet phe --t-max 1400
+
+Also
 notice that wherever you ran `steve`, you now should have a file
-called `zet_phe.npy`. This a crude cache file so that `steve` doesn't
+called `zet_phe-tess-spoc-120.npy`. This a crude cache file so that `steve` doesn't
 have to keep querying MAST.¹ You can control where these are put using
 the `--cache-dir` option.
 
@@ -47,7 +54,7 @@ There are loads of eclipses, so let's try phase-folding the
 lightcurve. We can also add some transparency to the points with
 `--alpha`. Try
 
-    python3 steve.py fold zet phe --alpha 0.1
+    python3 steve.py fold zet phe --t-max 1400 --alpha 0.1
 
 `steve` fits a sinc function to the tallest peak in the amplitude
 spectrum to estimate the principal period² and has clearly found half
@@ -57,12 +64,12 @@ the known period using `-P 1.66977` or we can use twice `steve`'s
 estimate with `-P -2`, because negative values mean "multiply
 `steve`'s estimate by this". So try
 
-    python3 steve.py fold zet phe --alpha 0.1 -P -2
+    python3 steve.py fold zet phe --t-max 1400 --alpha 0.1 -P -2
 
 To see why `steve` gets the period wrong, try plotting the amplitude
 spectrum with
 
-    python3 steve.py as zet phe
+    python3 steve.py as zet phe --t-max 1400
 
 You can also plot the power spectrum but that's mostly for people
 (like me) interested in solar-like oscillations.³
@@ -108,7 +115,7 @@ There might be slight differences because of version.
 
 #### SX Phe, 50-period segments
 
-    python3 steve.py fold sx phe --sap --title SX Phe -P -50 --delta 0.5 --ylabel TESSmag + offset
+    python3 steve.py fold sx phe --sap --t-max 1400 --title SX Phe -P -50 --delta 0.5 --ylabel TESSmag + offset
 
 ![SX Phe](https://pbs.twimg.com/media/EfYCLYgWoAIsKzJ.png:small)
 
