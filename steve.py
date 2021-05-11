@@ -239,9 +239,9 @@ if args.t0 is not None:
         time_label = 'time (days)'
     else:
         t = t - args.t0
-        time_label = 'time (JD-%.8g)' % args.t0
+        time_label = 'time (BJD-%.8g)' % args.t0
 else:
-    time_label = 'time (JD)'
+    time_label = 'time (BJD)'
 
 if args.transit_mask[1] == 0:
     I = np.ones(len(t), dtype=bool)
