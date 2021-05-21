@@ -87,12 +87,12 @@ parser.add_argument("--mission", type=str.lower, default='tess',
                     help="mission argument for lightkurve's search, "
                     "case insensitive (default='tess')",
                     choices=['tess', 'k2', 'kepler'])
-parser.add_argument("--author", type=str.lower, default='spoc',
+parser.add_argument("--author", type=str.lower, default=None,
                     help="author argument for lightkurve's search, "
-                    "case insensitive (default='SPOC')")
-parser.add_argument("--exptime", type=int, default=120,
+                    "case insensitive (default='SPOC' for TESS or 'Kepler' for Kepler)")
+parser.add_argument("--exptime", type=int, default=None,
                     help="exposure time argument for lightkurve's search "
-                    "(default=120)")
+                    "(default=120 for TESS/SPOC or 60 for Kepler/Kepler)")
 parser.add_argument("-r", "--radius", type=float, default=None,
                     help="radius for lightkurve's search, in arcseconds "
                     "(default=None, i.e. lightkurve default)")
@@ -102,6 +102,20 @@ parser.add_argument("--alpha", type=float, default=1.0,
                     help="opacity for plotted points (default=1.0)")
 parser.add_argument("-q", "--quiet", action='store_true')
 args = parser.parse_args()
+
+if args.author is None:
+    if args.mission == 'kepler':
+        args.author = 'kepler'
+    elif args.mission == 'tess':
+        args.author = 'spoc'
+
+if args.exptime is None:
+    if args.author == 'spoc':
+        args.exptime = 120
+    elif args.author == 'qlp':
+        args.exptime = 1800
+    elif args.author == 'kepler':
+        args.exptime = 60
 
 import matplotlib.pyplot as pl
 import lightkurve as lk
