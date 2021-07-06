@@ -261,7 +261,7 @@ if args.transit_mask[1] == 0:
     I = np.ones(len(t), dtype=bool)
 else:
     t0, w, P = args.transit_mask
-    I = ~np.abs((t-t0+0.5*P)%P - 0.5*P < w/2)
+    I = ~(np.abs((t-t0+0.5*P)%P - 0.5*P) < w/2)
 
 I = (q == 0) & np.isfinite(t*y) & (t > args.t_min) & (t < args.t_max) & I
 t, y, T = t[I], y[I], T[I]
